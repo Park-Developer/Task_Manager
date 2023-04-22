@@ -5,6 +5,14 @@ Option Explicit
 '-------------------------------------------------------------------------------------------
 Public Const MAX_TASK_NUMBER As Integer = 100
 
+
+'-------------------------------------------------------------------------------------------
+Public Const Setting1_Thema_Loc As String = "AG2"
+Public Const Setting2_Highlight_Loc As String = "AG3"
+
+Public Setting1_Thema As Boolean
+Public Setting2_Highlight As Boolean
+
 '-------------------------------------------------------------------------------------------
 'Task List Range(Max : 100)
 Public Const tasklist_name_range As String = "D15:D115" 'Task List Range
@@ -61,11 +69,6 @@ Public Const Timeline_month_Loc As String = "K2" ' Timeline Today Loc
 
 '-------------------------------------------------------------------------------------------
 
-'Public Userform_task_name As String
-'Public Userform_task_state As String
-'Public Userform_task_due As String
-'Public Userform_task_priority As String
-
 Public mod_button_line As Integer
 
 '-------------------------------------------------------------------------------------------
@@ -76,6 +79,11 @@ Public Const Lock_Password As String = "123123" 'Wonho_scheduler_V0
 Public Task_Collection As New Collection
 
 '-------------------------------------------------------------------------------------------
+
+Public Low_priority_num As Integer
+Public Normal_priority_num As Integer
+Public Urgent_priority_num As Integer
+
 Public Low_max_num As Integer
 Public Normal_max_num As Integer
 Public Urgent_max_num As Integer
@@ -92,7 +100,8 @@ Public Const Today_Task_Loc As String = "E6"
 Public Const Delayed_Task_Loc As String = "E7"
 
 
-
+'------------------------------------ This Week -------------------------------------------------------
+Public Const This_week_Loc As String = "AF9"
 
 
 Public Sub mod_btn_Click()
@@ -103,7 +112,7 @@ Public Sub mod_btn_Click()
    UserForm1.Show
 End Sub
 Public Sub Del_btn_Click()
- Debug.Print "---------------------------------------------------------------1 "
+
    ActiveSheet.Shapes(Application.Caller).Delete ' Delete Del Button
  
    Dim btn_name As String
@@ -176,7 +185,6 @@ Public Sub Del_btn_Click()
         Next
     
     End If
-    
     
 ' Delete Collection
  Task_Collection.Remove (delete_index)
@@ -251,35 +259,68 @@ For i = 1 To Task_Collection.Count
 Next
 
 
+Low_priority_num = low_not_start + low_progress + low_complete
+Normal_priority_num = normal_not_start + normal_progress + normal_complete
+Urgent_priority_num = urgent_not_start + urgent_progress + urgent_complete
+
+
 Low_max_num = WorksheetFunction.Max(low_not_start, low_progress, low_complete)
 Normal_max_num = WorksheetFunction.Max(normal_not_start, normal_progress, normal_complete)
 Urgent_max_num = WorksheetFunction.Max(urgent_not_start, urgent_progress, urgent_complete)
 
 
-ActiveSheet.Range(Low_Loc).Value = Low_max_num
-ActiveSheet.Range(Normal_Loc).Value = Normal_max_num
-ActiveSheet.Range(Urgent_Loc).Value = Urgent_max_num
+ActiveSheet.Range(Low_Loc).Value = Low_priority_num
+ActiveSheet.Range(Normal_Loc).Value = Normal_priority_num
+ActiveSheet.Range(Urgent_Loc).Value = Urgent_priority_num
+
+' Offset Setting
+Dim urgent_offset As Integer
+Dim normal_offset As Integer
+
+If (Urgent_max_num > 0) Then
+urgent_offset = 1
+
+Else
+urgent_offset = 0
+
+End If
+
+If (Normal_max_num > 0) Then
+normal_offset = 1
+Else
+normal_offset = 0
+End If
 
 
 'Priority_Bar Draw
 ActiveSheet.Range(Priority_Bar).offset(1).Resize(MAX_TASK_NUMBER * 2).ClearContents ' Clear Line
 ActiveSheet.Range(Priority_Bar).offset(1).Resize(MAX_TASK_NUMBER * 2).ClearFormats ' Clear Line
 
-ActiveSheet.Range(Priority_Bar).offset(1).Resize(Urgent_max_num).Interior.color = RGB(255, 0, 0)
-ActiveSheet.Range(Priority_Bar).offset(Urgent_max_num + 2).Resize(Normal_max_num).Interior.color = RGB(0, 255, 0)
-ActiveSheet.Range(Priority_Bar).offset(Urgent_max_num + 3 + Normal_max_num).Resize(Low_max_num).Interior.color = RGB(0, 0, 255)
+If Urgent_max_num > 0 Then
+    ActiveSheet.Range(Priority_Bar).offset(1).Resize(Urgent_max_num).Interior.color = RGB(255, 0, 0)
+End If
+
+If Normal_max_num > 0 Then
+ActiveSheet.Range(Priority_Bar).offset(Urgent_max_num + 1 + urgent_offset).Resize(Normal_max_num).Interior.color = RGB(0, 255, 0)
+End If
+
+If Low_max_num Then
+ActiveSheet.Range(Priority_Bar).offset(Urgent_max_num + 1 + normal_offset + urgent_offset + Normal_max_num).Resize(Low_max_num).Interior.color = RGB(0, 0, 255)
+End If
 
 
 End Sub
 Public Sub Copy_TaskData()
 
+Call Unlock_Activesheet
+
 ' Sort With Priority
 Call sort_by_priority '
 
 'Clear All Contents
-ActiveSheet.Range(Not_stared_task).offset(1).Resize(MAX_TASK_NUMBER * 2, 400).ClearContents ' Clear Line
-ActiveSheet.Range(In_progress_task).offset(1).Resize(MAX_TASK_NUMBER * 2, 400).ClearContents ' Clear Line
-ActiveSheet.Range(Not_stared_task).offset(1).Resize(MAX_TASK_NUMBER * 2, 400).ClearContents ' Clear Line
+ActiveSheet.Range(Not_stared_task).offset(1).Resize(MAX_TASK_NUMBER * 2, 5).ClearContents ' Clear Line
+ActiveSheet.Range(In_progress_task).offset(1).Resize(MAX_TASK_NUMBER * 2, 5).ClearContents ' Clear Line
+ActiveSheet.Range(Not_stared_task).offset(1).Resize(MAX_TASK_NUMBER * 2, 5).ClearContents ' Clear Line
 
 Dim i As Integer
 
@@ -307,6 +348,24 @@ complete_low = 0
 complete_normal = 0
 complete_urgent = 0
 
+' Offset Setting
+Dim urgent_offset As Integer
+Dim normal_offset As Integer
+
+If (Urgent_max_num > 0) Then
+urgent_offset = 1
+
+Else
+urgent_offset = 0
+
+End If
+
+If (Normal_max_num > 0) Then
+normal_offset = 1
+Else
+normal_offset = 0
+End If
+
 
 For i = 1 To Task_Collection.Count
 
@@ -324,18 +383,18 @@ For i = 1 To Task_Collection.Count
         ' (1-2) Normal
         ElseIf (Task_Collection(i).priority = "Normal") Then
             not_start_normal = not_start_normal + 1
-            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + 1 + not_start_normal).Value = Task_Collection(i).name
+            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + urgent_offset + not_start_normal).Value = Task_Collection(i).name
         
             ' font setting
-            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + 1 + not_start_normal).Font.color = set_Fontcolor(Task_Collection(i).due)
+            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + urgent_offset + not_start_normal).Font.color = set_Fontcolor(Task_Collection(i).due)
             
         ' (1-3) Low
         Else ' priority= "Low"
             not_start_low = not_start_low + 1
-            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + Normal_max_num + 2 + not_start_low).Value = Task_Collection(i).name
+            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + urgent_offset + normal_offset + Normal_max_num + not_start_low).Value = Task_Collection(i).name
             
             ' font setting
-            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + Normal_max_num + 2 + not_start_low).Font.color = set_Fontcolor(Task_Collection(i).due)
+            ActiveSheet.Range(Not_stared_task).offset(Urgent_max_num + urgent_offset + normal_offset + Normal_max_num + not_start_low).Font.color = set_Fontcolor(Task_Collection(i).due)
             
         End If
     
@@ -353,17 +412,17 @@ For i = 1 To Task_Collection.Count
         ' (2-2) Normal
         ElseIf (Task_Collection(i).priority = "Normal") Then
             inprogress_normal = inprogress_normal + 1
-            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + 1 + inprogress_normal).Value = Task_Collection(i).name
+            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + urgent_offset + inprogress_normal).Value = Task_Collection(i).name
         
             ' font setting
-            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + 1 + inprogress_normal).Font.color = set_Fontcolor(Task_Collection(i).due)
+            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + urgent_offset + inprogress_normal).Font.color = set_Fontcolor(Task_Collection(i).due)
         ' (2-3) Low
         Else ' priority= "Low"
-            not_start_low = not_start_low + 1
-            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + Normal_max_num + 2 + inprogress_low).Value = Task_Collection(i).name
+            inprogress_low = inprogress_low + 1
+            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + Normal_max_num + urgent_offset + normal_offset + inprogress_low).Value = Task_Collection(i).name
             
             ' font setting
-            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + Normal_max_num + 2 + inprogress_low).Font.color = set_Fontcolor(Task_Collection(i).due)
+            ActiveSheet.Range(In_progress_task).offset(Urgent_max_num + Normal_max_num + urgent_offset + normal_offset + inprogress_low).Font.color = set_Fontcolor(Task_Collection(i).due)
         End If
 
         
@@ -375,29 +434,26 @@ For i = 1 To Task_Collection.Count
             complete_urgent = complete_urgent + 1
             ActiveSheet.Range(Complete_task).offset(complete_urgent).Value = Task_Collection(i).name
         
-            ' font setting
-            ActiveSheet.Range(Complete_task).offset(complete_urgent).Font.color = set_Fontcolor(Task_Collection(i).due)
+            
         ' (3-2) Normal
         ElseIf (Task_Collection(i).priority = "Normal") Then
             complete_normal = complete_normal + 1
-            ActiveSheet.Range(Complete_task).offset(Urgent_max_num + 1 + complete_normal).Value = Task_Collection(i).name
+            ActiveSheet.Range(Complete_task).offset(Urgent_max_num + urgent_offset + complete_normal).Value = Task_Collection(i).name
         
-            ' font setting
-            ActiveSheet.Range(Complete_task).offset(Urgent_max_num + 1 + complete_normal).Font.color = set_Fontcolor(Task_Collection(i).due)
+          
         ' (3-3) Low
         Else ' priority= "Low"
             complete_low = complete_low + 1
-            ActiveSheet.Range(Complete_task).offset(Urgent_max_num + Normal_max_num + 2 + complete_low).Value = Task_Collection(i).name
+            ActiveSheet.Range(Complete_task).offset(Urgent_max_num + Normal_max_num + urgent_offset + normal_offset + complete_low).Value = Task_Collection(i).name
             
-            ' font setting
-            ActiveSheet.Range(Complete_task).offset(Urgent_max_num + Normal_max_num + 2 + complete_low).Font.color = set_Fontcolor(Task_Collection(i).due)
         End If
     
     End If
     
 Next
     
-    
+Call Lock_Activesheet
+
 End Sub
 
 Public Sub find_todayTask()
